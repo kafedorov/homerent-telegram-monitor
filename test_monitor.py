@@ -149,7 +149,7 @@ class MonitorTests(unittest.TestCase):
 
     def test_detail_strict_filters_and_photo_domain(self):
         item, _ = parse_card(card(), self.cfg, "test")
-        for delta in ({"repair": "Косметический"}, {"repair": ""}, {"floor_text": "1 из 9"},
+        for delta in ({"repair": "Косметический"}, {"floor_text": "1 из 9"},
                       {"floor_text": ""}, {"price_text": "70001 ₽/мес."}, {"inactive": True},
                       {"title": "Квартира-студия"}, {"blocked": True}):
             self.assertIsNone(validate_detail(item, DETAIL | delta, self.cfg)[0], delta)
@@ -158,6 +158,30 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(result["prepayment"], "1 месяц")
         self.assertEqual((result["entry_base_rub"], result["house_year"]), (125000, 2018))
         self.assertEqual((result["author_type"], result["author_name"]), ("Собственник", "Анна"))
+
+    def test_missing_repair_is_allowed_with_prominent_warning(self):
+        item, _ = parse_card(card(), self.cfg, "test")
+        result, reason = validate_detail(item, DETAIL | {"repair": ""}, self.cfg)
+        self.assertEqual(reason, "")
+        self.assertEqual(result["repair"], "не указан")
+        self.assertTrue(result["repair_missing"])
+        message = format_listing(result)
+        self.assertIn("<b>❗❗ РЕМОНТ НЕ УКАЗАН ❗❗</b>", message)
+        self.assertIn("🛠 Ремонт: не указан", message)
+
+    def test_restart_rechecks_old_missing_repair_rejection(self):
+        self.store.baseline_complete()
+        self.store.observe(card(), self.cfg, False)
+        self.store.set_status("123456789", "ignored",
+                              "ремонт не подходит или не указан: нет данных")
+        self.store.close()
+
+        self.store = Store(self.path)
+        self.assertEqual(self.status(), "needs_detail")
+        browser = Browser([page()], detail=DETAIL | {"repair": ""})
+        scan_cycle(self.store, browser, self.bot, self.cfg)
+        self.assertEqual(self.status(), "sent")
+        self.assertTrue(self.bot.items[0]["repair_missing"])
 
     def test_author_is_classified_without_affecting_filters(self):
         item, _ = parse_card(card(), self.cfg, "test")

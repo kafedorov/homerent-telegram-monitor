@@ -235,6 +235,7 @@ def format_listing(item: dict, custom_emoji_ids=None) -> str:
 
     lines = [
         "🏠 Новая квартира",
+        *(["<b>❗❗ РЕМОНТ НЕ УКАЗАН ❗❗</b>"] if item.get("repair_missing") else []),
         f"💰 Аренда: {money(item['rent_rub'])}/мес.",
         f"💳 Цена входа: {entry_text}",
         f"📐 Площадь: {item.get('area_m2') or 'не указана'} м²",
@@ -244,7 +245,7 @@ def format_listing(item: dict, custom_emoji_ids=None) -> str:
         f"📍 Адрес: {safe(item.get('address') or 'не указан', 180)}",
         f"🚇 Метро: {metro}",
         f"🚶 До метро: {item['metro_minutes']} мин пешком",
-        f"🛠 Ремонт: {item['repair']}",
+        f"🛠 Ремонт: {safe(item.get('repair') or 'не указан', 80)}",
         f"👤 Автор: {safe(item.get('author_type') or 'не указан', 40)} — "
         f"{safe(item.get('author_name') or 'имя не указано', 100)}",
         f"🕒 Опубликовано: {published}",

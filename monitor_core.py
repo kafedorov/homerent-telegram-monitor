@@ -82,6 +82,15 @@ class Store:
         # A crash after the send started has an unknown outcome. Never silently duplicate.
         with self.db:
             self.db.execute("UPDATE offers SET status='uncertain', reason='Перезапуск во время отправки' WHERE status='sending'")
+            # Repair used to be a strict filter even when Cian did not expose the
+            # value. Recheck only post-baseline offers rejected for that exact
+            # reason; already sent and explicitly unsuitable repairs stay intact.
+            self.db.execute("""
+                UPDATE offers
+                SET status='needs_detail', reason='', attempts=0, retry_at=0
+                WHERE status='ignored'
+                  AND reason='ремонт не подходит или не указан: нет данных'
+            """)
 
     def close(self):
         self.db.close()
@@ -252,9 +261,12 @@ def validate_detail(item: dict, detail: dict, cfg: dict):
     floor = re.fullmatch(r"(\d+)\s*(?:из|/)\s*(\d+)", detail.get("floor_text", "").strip())
     if not floor or int(floor[1]) < cfg["min_floor"]:
         return None, "этаж на странице не проходит фильтр или не распознан"
-    repair = detail.get("repair", "")
-    if norm(repair) not in {norm(x) for x in cfg["allowed_repairs"]}:
-        return None, "ремонт не подходит или не указан: " + (repair or "нет данных")
+    repair = str(detail.get("repair", "") or "").strip()
+    repair_missing = not repair
+    if not repair_missing and norm(repair) not in {norm(x) for x in cfg["allowed_repairs"]}:
+        return None, "ремонт не подходит: " + repair
+    if repair_missing:
+        repair = "не указан"
     photos = trusted_photo_urls(detail.get("photos"), 3)
     rent = amount(price[1])
 
@@ -290,7 +302,8 @@ def validate_detail(item: dict, detail: dict, cfg: dict):
     author_type, author_name = classify_author(detail)
 
     result = dict(item, rent_rub=rent, rooms=int(room[1]), floor=int(floor[1]),
-                  floors_total=int(floor[2]), repair=repair, photos=photos,
+                  floors_total=int(floor[2]), repair=repair,
+                  repair_missing=repair_missing, photos=photos,
                   deposit_rub=deposit, commission_rub=commission,
                   commission_pct=commission_pct, prepayment=prepayment,
                   prepayment_months=prepayment_months, entry_base_rub=entry,
