@@ -1,0 +1,28 @@
+# Виртуальное окружение Python
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Данные и секреты приложения
+data/
+telegram.json
+browser_profile/
+*.sqlite3
+*.sqlite3-*
+*.log
+
+# Результаты выгрузок и архивы
+first_snapshot_*/
+*.zip
+
+# Локальные настройки VS Code
+.vscode/
+
+# Windows
+Thumbs.db
+Desktop.ini

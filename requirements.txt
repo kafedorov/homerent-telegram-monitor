@@ -1,0 +1,2 @@
+playwright>=1.50,<2
+tzdata>=2025.2
